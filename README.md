@@ -1,61 +1,64 @@
-# def find_raisins(cake)
-  raisins = []
-  cake.each_with_index do |row, y|
-    row.chars.each_with_index do |char, x|
-      raisins << [y, x] if char == 'o'
+RAISIN_CHAR = "0"
+
+def perform_cake_cutting(cake)
+  height = cake.size
+  width = cake[0].size
+  raisin_count = cake.flatten.count(RAISIN_CHAR)
+
+  available_cuts = generate_possible_cuts(cake, height, width)
+
+  sorted_cuts = available_cuts.sort_by { |cut| -cut[2] }
+
+  result = []
+  covered = Array.new(height) { Array.new(width, false) }
+
+  sorted_cuts.each do |cut|
+    x, y, w, h = cut
+
+    unless is_area_covered?(covered, x, y, w, h)
+      result << get_slice(cake, x, y, w, h)
+      mark_area_as_covered(covered, x, y, w, h)
+      break if result.size == raisin_count
     end
   end
-  raisins
+
+  result
 end
 
-def valid_cut?(cake, row_start, row_end, col_start, col_end, memo)
-  key = [row_start, row_end, col_start, col_end]
-  return memo[key] if memo.key?(key)
-
-  piece = cake[row_start...row_end].map { |row| row[col_start...col_end] }
-  memo[key] = piece.join.count('o') == 1
-end
-
-def find_cuts(cake, row, col, raisins, current_cut, all_cuts, memo)
-  if current_cut.size == raisins.size
-    all_cuts << current_cut.clone
-    return
-  end
-
-  (row...cake.size).each do |row_end|
-    (col...cake[0].size).each do |col_end|
-      next if row_end <= row || col_end <= col
-      if valid_cut?(cake, row, row_end, col, col_end, memo)
-        current_cut << [row, row_end, col, col_end]
-        new_row, new_col = (col_end == cake[0].size - 1) ? [row_end, 0] : [row, col_end]
-        find_cuts(cake, new_row, new_col, raisins, current_cut, all_cuts, memo)
-        current_cut.pop
+def generate_possible_cuts(cake, height, width)
+  (1..height).flat_map do |h|
+    (1..width).flat_map do |w|
+      (0..height-h).flat_map do |y|
+        (0..width-w).select do |x|
+          count_raisins_in_cut(cake, x, y, w, h) == 1
+        end.map { |x| [x, y, w, h] }
       end
     end
   end
 end
 
-def cut_cake(cake)
-  raisins = find_raisins(cake)
-  return ['Invalid cake'] if raisins.size < 2 || raisins.size > 9
-
-  all_cuts = []
-  memo = {}
-  find_cuts(cake, 0, 0, raisins, [], all_cuts, memo)
-
-  best_cut = all_cuts.max_by { |cut| cut.first[1] - cut.first[0] }
-  best_cut.map do |(row_start, row_end, col_start, col_end)|
-    piece = cake[row_start...row_end].map { |row| row[col_start...col_end] }
-    piece.join("\n")
-  end
+def count_raisins_in_cut(cake, x, y, w, h)
+  cake[y..y+h-1].map { |row| row[x..x+w-1].count(RAISIN_CHAR) }.sum
 end
 
-# Example usage
+def get_slice(cake, x, y, w, h)
+  cake[y..y+h-1].map { |row| row[x..x+w-1] }
+end
+
+def is_area_covered?(covered, x, y, w, h)
+  covered[y..y+h-1].any? { |row| row[x..x+w-1].any? }
+end
+
+def mark_area_as_covered(covered, x, y, w, h)
+  covered[y..y+h-1].each { |row| row[x..x+w-1] = [true] * w }
+end
+
 cake = [
-  '.o......',
-  '......o.',
-  '....o...',
-  '..o.....'
+  ".0......",
+  "......0.",
+  "....0...",
+  "..0....."
 ]
 
-cut_cake(cake).each { |piece| puts piece; puts "" }
+result = perform_cake_cutting(cake)
+result.each_with_index { |piece, index| puts "#{index + 1}) #{piece.join(", ")} , " }
